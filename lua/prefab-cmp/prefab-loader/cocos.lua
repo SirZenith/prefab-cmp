@@ -33,8 +33,9 @@ end
 local function wrap(prefab, index)
     local go_json = prefab[index]
     if not go_json then
-        local msg = ("index out of range: %d of %d"):format(index, #prefab)
-        error(msg)
+        local msg = ("prefab index out of range: %d of %d"):format(index, #prefab)
+        vim.notify(msg, vim.log.levels.WARN)
+        return GameObject:new("")
     end
 
     local json_children = go_json._children or {} --[[@as prefab-loader.cocos.IDInfo[] ]]
@@ -61,8 +62,14 @@ local function wrap(prefab, index)
 end
 
 ---@param path string
+---@return GameObject
+---@return string | nil err
 local function load_prefab(path)
-    local prefab = load_raw_prefab(path)
+    local prefab, err = load_raw_prefab(path)
+    if err then
+        return GameObject:new("error"), ("while loading prefab: %q"):format(err)
+    end
+
     local info = prefab[1]
     local id = info.data.__id__
     return wrap(prefab, id + 1)

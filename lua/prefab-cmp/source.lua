@@ -4,11 +4,11 @@ local Scope = scope.Scope
 local bufoption = vim.bo
 local treesitter = vim.treesitter
 
----@alias PrefabLoader { load_prefab: fun(path: string): GameObject }
+---@alias PrefabLoader { load_prefab: fun(path: string): GameObject, string | nil }
 
 -- ----------------------------------------------------------------------------
 
----@class prefab_completion.Source : cmp.Source
+---@class prefab-cmp.Source : cmp.Source
 ---@field filetype? string
 ---@field handler_map? ScopeHandlerMap
 ---@field hook_map? ScopeHookMap
@@ -25,6 +25,7 @@ local Source = {}
 Source.name = "prefab-completion"
 Source.__index = Source
 
+---@return prefab-cmp.Source
 function Source:new()
     local obj = setmetatable({}, self)
 
@@ -69,7 +70,11 @@ end
 -- ----------------------------------------------------------------------------
 
 function Source:_load_prefab(path)
-    local gameobject = self.prefab_loader.load_prefab(path)
+    local gameobject, err = self.prefab_loader.load_prefab(path)
+    if err then
+        vim.notify(err, vim.log.levels.WARN)
+        return
+    end
     self.prefab_map[path] = gameobject
 end
 
@@ -212,6 +217,8 @@ function Source:is_available()
         ) then
         return false
     end
+
+    return true
 end
 
 ---@return string[]
@@ -266,6 +273,8 @@ function Source:complete(param, callback)
     }
 end
 
-return {
-    Source = Source,
-}
+-- ----------------------------------------------------------------------------
+
+local source = Source:new()
+
+return source

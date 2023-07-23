@@ -1,1 +1,0 @@
-require "prefab-cmp".setup()
