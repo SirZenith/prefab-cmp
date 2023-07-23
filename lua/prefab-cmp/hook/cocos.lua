@@ -1,9 +1,9 @@
 local util = require "prefab-cmp.util"
+local NodeType = require "prefab-cmp.node-type.typescript"
 
 local treesitter = vim.treesitter
-local NodeType = util.NodeType
 
----@type ScopeHookMap
+---@type ScopeHookMap<prefab-cmp.typescript.NodeType>
 local hook_map = {
     [NodeType.class_declaration] = function(source, scope, node)
         local bufnr = scope.bufnr

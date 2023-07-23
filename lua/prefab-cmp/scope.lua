@@ -22,13 +22,16 @@ local ScopeType = {
 ---@alias ScopeRange { st: Position, ed: Position }
 
 ---@alias ScopeHookFunc fun(self: any, scope: Scope, node: TSNode): table<string, any> | nil
----@alias ScopeHookMap table<NodeType, ScopeHookFunc>
+
+---@generic T : NodeType
+---@class ScopeHookMap<T> : table<T, ScopeHookFunc>
 
 ---@alias ScopeHandlerFunc fun(self: Scope, node: TSNode): DispatchResult
 ---@alias ScopeHandlerMap table<string, boolean | ScopeHandlerFunc>
 
 -- ----------------------------------------------------------------------------
 
+---@generic T : NodeType
 ---@class Scope
 --
 ---@field bufnr number
@@ -46,7 +49,7 @@ local ScopeType = {
 ---@field lazy_nodes? TSNode[]
 ---@field handler ScopeHandlerMap
 ---@field hook_obj? any
----@field hook_map? ScopeHookMap
+---@field hook_map? ScopeHookMap<T>
 local Scope = {}
 Scope.__index = Scope
 Scope._id = 0

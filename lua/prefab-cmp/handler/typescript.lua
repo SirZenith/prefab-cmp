@@ -2,11 +2,13 @@ local ident_info = require "prefab-cmp.ident_info"
 local scope = require "prefab-cmp.scope"
 local util = require "prefab-cmp.util"
 
+local NodeType = require "prefab-cmp.node-type.typescript"
+
 local IdentType = ident_info.IdentType
 local IdentInfo = ident_info.IdentInfo
 local Scope = scope.Scope
 local ScopeType = scope.ScopeType
-local NodeType = util.NodeType
+
 
 ---@type ScopeHandlerMap
 local handler_map = {

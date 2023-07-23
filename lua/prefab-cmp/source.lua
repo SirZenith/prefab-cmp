@@ -176,6 +176,22 @@ function Source:get_gameobject_path(node)
     return table.concat(buffer, '/')
 end
 
+---@param buffer string[]
+---@param target GameObject
+---@param base_path string
+---@return string[] buffer
+function Source:get_all_child_path(buffer, target, base_path)
+    for _, child in ipairs(target.children) do
+        local name = child.name
+        local path = base_path == "" and name or (base_path .. "/" .. name)
+        table.insert(buffer, path)
+
+        self:get_all_child_path(buffer, child, path)
+    end
+
+    return buffer
+end
+
 ---@param node TSNode # node pointing to getGameObject gets called on
 ---@param input_path string # path string that has been inputed
 ---@return lsp.CompletionItem[] | nil
@@ -191,9 +207,9 @@ function Source:gen_completion(node, input_path)
     if not target then return end
 
     local result = {}
-    for _, child in ipairs(target.children) do
+    for _, child_path in ipairs(self:get_all_child_path({}, target, "")) do
         table.insert(result, {
-            label = child.name,
+            label = child_path,
             kind = vim.lsp.protocol.CompletionItemKind.Value,
         })
     end

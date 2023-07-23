@@ -3,23 +3,7 @@ local M = {}
 ---@class TSNode
 ---@field field fun(self, name: string): TSNode[]
 
----@enum NodeType
-local NodeType = {
-    accessibility_modifier = "accessibility_modifier",
-    arguments = "arguments",
-    call_expression = "call_expression",
-    class_declaration = "class_declaration",
-    decorator = "decorator",
-    import_clause = "import_clause",
-    named_imports = "named_imports",
-    import_specifier = "import_specifier",
-    import_statement = "import_statement",
-    object = "object",
-    pair = "pair",
-    string_fragment = "string_fragment",
-    variable_declarator = "variable_declarator",
-}
-M.NodeType = NodeType
+---@class NodeType
 
 ---@param node TSNode
 ---@param ... NodeType
