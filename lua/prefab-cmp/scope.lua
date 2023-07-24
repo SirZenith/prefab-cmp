@@ -356,10 +356,7 @@ end
 ---@param ident IdentInfo
 function Scope:add_ident(ident)
     table.insert(self.identifiers, ident)
-    local name = ident.name
-    if name then
-        self.ident_name_map[name] = ident
-    end
+    self.ident_name_map[ident.name] = ident
 end
 
 ---@param name string
@@ -373,16 +370,7 @@ end
 function Scope:resolve_symbol(name)
     self:finalize_lazy()
 
-    local result
-
-    local identifiers = self.identifiers
-    for i = #identifiers, 1, -1 do
-        local ident = identifiers[i]
-        if ident.name == name then
-            result = ident
-            break
-        end
-    end
+    local result = self.ident_name_map[name] ---@type IdentInfo?
 
     local parent = self.parent
     if not result and parent then

@@ -60,7 +60,7 @@ local handler_map = {
         local this = IdentInfo:new_raw(IdentType.variable, "this", {
             row = row, col = col, byte = byte,
         })
-        table.insert(child_scope.identifiers, this)
+        child_scope:add_ident(this)
 
         -- class as a symbol
         local ident = IdentInfo:new(IdentType.class, self.bufnr, name_node)
@@ -235,7 +235,8 @@ local handler_map = {
         local param_node = node:field("parameters")[1]
         local body_node = node:field("body")[1]
 
-        local child_scope = Scope:new_lazy(self, name, ScopeType.method, body_node, param_node)
+        local child_scope = Scope:new_lazy(self, name, ScopeType.method, body_node)
+        child_scope:load_node(param_node)
 
         -- method as a symbol
         local ident = IdentInfo:new(IdentType.method, self.bufnr, name_node)

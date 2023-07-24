@@ -18,7 +18,6 @@ local treesitter = vim.treesitter
 ---@field prefab_map table<string, GameObject>
 --
 ---@field active_bufnr? number
----@field active_prefab? GameObject
 ---@field active_node? TSNode
 ---@field active_scope? Scope
 local Source = {}
@@ -39,7 +38,6 @@ function Source:load_buf(bufnr)
     if bufoption[bufnr].filetype ~= self.filetype then
         self.active_bufnr = nil
         self.active_node = nil
-        self.active_prefab = nil
         self.active_scope = nil
         return
     end
@@ -71,6 +69,7 @@ end
 
 -- ----------------------------------------------------------------------------
 
+---@param path string
 function Source:_load_prefab(path)
     local gameobject, err = self.prefab_loader.load_prefab(path)
     if err then
@@ -79,16 +78,17 @@ function Source:_load_prefab(path)
     self.prefab_map[path] = gameobject
 end
 
----@param path string
-function Source:set_active_prefab(path)
+---@param prefab_path string
+---@return GameObject?
+function Source:get_gameobject(prefab_path)
     local map = self.prefab_path_map_func
-    path = map and map(path) or path
+    prefab_path = map and map(prefab_path) or prefab_path
 
-    if not self.prefab_map[path] then
-        self:_load_prefab(path)
+    if not self.prefab_map[prefab_path] then
+        self:_load_prefab(prefab_path)
     end
 
-    self.active_prefab = self.prefab_map[path]
+    return self.prefab_map[prefab_path]
 end
 
 -- ----------------------------------------------------------------------------
@@ -139,7 +139,8 @@ function Source:is_get_gameobject_call(node)
 end
 
 ---@param node TSNode # node pointing to getGameObject gets called on
----@return string | nil
+---@return string? game_object_path
+---@return string? prefab_path
 function Source:get_gameobject_path(node)
     local name = self:get_node_text(node)
     local st_row, st_col, ed_row, ed_col = node:range()
@@ -151,16 +152,20 @@ function Source:get_gameobject_path(node)
     local s = self.active_scope:find_min_wrapper(range)
     if not s then return end
 
+    local prefab_path
     local buffer = {}
     local ident = s:resolve_symbol(name)
     while ident do
-        local extra_info = ident.extra_info
-        local path = extra_info and extra_info.path
+        vim.print("looking at: " .. ident.name)
+        prefab_path = ident:get_extra_info("prefab_path")
+        if prefab_path then break end
+
+        local path = ident:get_extra_info("game_object_path")
         if not path then break end
 
         table.insert(buffer, path)
 
-        local parent = ident.extra_info.parent
+        local parent = ident:get_extra_info("parent_object")
         if not parent then break end
 
         ident = s:resolve_symbol(parent)
@@ -174,7 +179,7 @@ function Source:get_gameobject_path(node)
         buffer[j] = temp
     end
 
-    return table.concat(buffer, '/')
+    return table.concat(buffer, '/'), prefab_path
 end
 
 ---@param buffer string[]
@@ -197,11 +202,12 @@ end
 ---@param input_path string # path string that has been inputed
 ---@return lsp.CompletionItem[] | nil
 function Source:gen_completion(node, input_path)
-    local go = self.active_prefab
-    if not go then return end
+    local path, prefab_path = self:get_gameobject_path(node)
+    vim.print(path, prefab_path)
+    if not (path and prefab_path) then return end
 
-    local path = self:get_gameobject_path(node)
-    if not path then return end
+    local go = self:get_gameobject(prefab_path)
+    if not go then return end
 
     local target = go:get_child(path)
     target = target and target:get_child(input_path)
@@ -229,7 +235,6 @@ function Source:is_available()
     if not (
             self.active_bufnr
             and self.active_node
-            and self.active_prefab
             and self.active_scope
         ) then
         return false
