@@ -3,6 +3,7 @@
 ---@field name string
 ---@field children GameObject[]
 ---@field child_map table<string, GameObject>
+---@field extra_info? table<string, any>
 local GameObject = {}
 GameObject.__index = GameObject
 

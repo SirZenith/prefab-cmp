@@ -73,7 +73,6 @@ function Source:_load_prefab(path)
     local gameobject, err = self.prefab_loader.load_prefab(path)
     if err then
         vim.notify(err, vim.log.levels.WARN)
-        return
     end
     self.prefab_map[path] = gameobject
 end
@@ -239,7 +238,7 @@ end
 
 ---@return string[]
 function Source:get_trigget_characters()
-    return { "'", "\"", "/" }
+    return { "'", "\"" }
 end
 
 ---@param param cmp.SourceCompletionApiParams
