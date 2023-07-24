@@ -1,7 +1,4 @@
-local ident_info = require "prefab-cmp.ident_info"
-
 local treesitter = vim.treesitter
-local IdentInfo = ident_info.IdentInfo
 
 local INDENT = "    "
 local NEW_LINE = "\n"
@@ -16,25 +13,25 @@ local ScopeType = {
     if_block = "if block",
     method = "method",
     program = "program",
+    namespace = "namespace",
 }
 
 ---@alias Position { row: integer, col: integer, byte: integer }
 ---@alias ScopeRange { st: Position, ed: Position }
 
----@alias ScopeHookFunc fun(self: any, scope: Scope, node: TSNode): table<string, any> | nil
+---@alias ScopeHookFunc fun(self: any, scope: Scope, node: TSNode, result: DispatchResult) | nil
 
----@generic T : NodeType
----@class ScopeHookMap<T> : table<T, ScopeHookFunc>
+---@alias ScopeHookMap table<string, ScopeHookFunc>
 
----@alias ScopeHandlerFunc fun(self: Scope, node: TSNode): DispatchResult
+---@alias ScopeHandlerFunc fun(self: Scope, node: TSNode): DispatchResult?
 ---@alias ScopeHandlerMap table<string, boolean | ScopeHandlerFunc>
 
 -- ----------------------------------------------------------------------------
 
----@generic T : NodeType
 ---@class Scope
 --
 ---@field bufnr number
+---@field root TSNode
 ---@field id number
 ---@field type ScopeType
 ---@field name? string
@@ -42,76 +39,29 @@ local ScopeType = {
 --
 ---@field parent? Scope
 ---@field children Scope[]
----@field named_children { [string]: integer }
----@field child_index_to_name table<number, string>
+---@field child_name_map table<string, Scope>
 ---@field identifiers IdentInfo[]
+---@field ident_name_map table<string, IdentInfo>
 --
 ---@field lazy_nodes? TSNode[]
 ---@field handler ScopeHandlerMap
 ---@field hook_obj? any
----@field hook_map? ScopeHookMap<T>
+---@field hook_map? ScopeHookMap
 local Scope = {}
 Scope.__index = Scope
 Scope._id = 0
 
----@param handler_map ScopeHandlerMap
-function Scope:set_handler(handler_map)
-    self.handler = handler_map
-end
-
----@param bufnr integer
----@param type ScopeType
----@param root TSNode
----@return Scope
-function Scope:new(bufnr, type, root)
-    local obj = setmetatable({}, self)
-
-    local new_id = self._id + 1
-    self._id = new_id
-
-    obj.bufnr = bufnr
-    obj.id = new_id
-    obj.type = type
-
-    local st_row, st_col, st_byte, ed_row, ed_col, ed_byte = root:range(true);
-    obj.range = {
-        st = { row = st_row, col = st_col, byte = st_byte },
-        ed = { row = ed_row, col = ed_col, byte = ed_byte },
-    }
-
-    obj.parent = nil
-    obj.children = {}
-    obj.named_children = {}
-    obj.child_index_to_name = {}
-    obj.identifiers = {}
-
-    obj.hook = {}
-
-    return obj
-end
-
----@param bufnr integer
----@param type ScopeType
----@param root TSNode
----@param ... TSNode
----@return Scope
-function Scope:new_lazy(bufnr, type, root, ...)
-    local scope = Scope:new(bufnr, type, root)
-    scope:add_lazy_node(root)
-    for _, node in ipairs({ ... }) do
-        scope:add_lazy_node(node)
-    end
-    return scope
-end
-
+-- Creates a scope directly from given buffer.
 ---@param bufnr number
 ---@param root TSNode
 ---@param handler_map ScopeHandlerMap
 ---@param hook? { obj: any, map: ScopeHookMap }
 ---@return Scope
 function Scope:load(bufnr, root, handler_map, hook)
-    local scope = self:new(bufnr, root:type(), root)
-    scope:set_handler(handler_map)
+    local scope = self:new(nil, "root", root:type(), root)
+
+    scope.bufnr = bufnr
+    scope.handler = handler_map
 
     if hook then
         scope.hook_obj = hook.obj
@@ -123,19 +73,99 @@ function Scope:load(bufnr, root, handler_map, hook)
     return scope
 end
 
+-- Creates a new scope with the same buffer number, handler map, hook object,
+-- hook map as source passed in.
+---@param source? Scope
+---@param name string
+---@param type ScopeType
+---@param root TSNode
+---@return Scope
+function Scope:new(source, name, type, root)
+    local obj = setmetatable({}, self)
+
+    local new_id = self._id + 1
+    self._id = new_id
+
+    if source then
+        obj:mimic(source)
+    end
+    obj.id = new_id
+    obj.name = name
+    obj.root = root
+    obj.type = type
+
+    local st_row, st_col, st_byte, ed_row, ed_col, ed_byte = root:range(true);
+    obj.range = {
+        st = { row = st_row, col = st_col, byte = st_byte },
+        ed = { row = ed_row, col = ed_col, byte = ed_byte },
+    }
+
+    obj.parent = nil
+    obj.children = {}
+    obj.child_name_map = {}
+    obj.identifiers = {}
+    obj.ident_name_map = {}
+
+    return obj
+end
+
+-- Like Scope:new(), but new scope object can remember TSNode it contains. This
+-- allow unnecessary traverse postpon until `self:finalize_lazy()` is called.
+---@param source Scope
+---@param name string
+---@param type ScopeType
+---@param root TSNode
+---@param ... TSNode
+---@return Scope
+function Scope:new_lazy(source, name, type, root, ...)
+    local scope = Scope:new(source, name, type, root)
+    scope:add_lazy_node(root)
+    for _, node in ipairs({ ... }) do
+        scope:add_lazy_node(node)
+    end
+    return scope
+end
+
+-- Copy handler, hook object, hook map from another scope.
+---@param other Scope
+function Scope:mimic(other)
+    self.bufnr = other.bufnr
+    self.handler = other.handler
+    self.hook_obj = other.hook_obj
+    self.hook_map = other.hook_map
+end
+
+-- ----------------------------------------------------------------------------
+
+-- Dispatch one node to handler, add result symbol to current scope.
 ---@param node TSNode
 function Scope:load_node(node)
     local result = self:dispatch_to_handler(node)
+    if not result then return end
 
-    if getmetatable(result) == IdentInfo then
-        table.insert(self.identifiers, result)
-    elseif result then
-        for _, info in ipairs(result) do
-            table.insert(self.identifiers, info)
+    if result.ident then
+        self:add_ident(result.ident)
+    end
+
+    if result.ident_list then
+        for _, ident in ipairs(result.ident_list) do
+            self:add_ident(ident)
+        end
+    end
+
+    if result.scope then
+        self:add_child(result.scope)
+    end
+
+    if result.scope_list then
+        for _, child in ipairs(result.scope_list) do
+            table.insert(self.identifiers, child)
         end
     end
 end
 
+-- Iterate though all named child of given node, add symbol encountered into
+--  current scope.
 ---@param node TSNode
 function Scope:load_named_node_child(node)
     for child in node:iter_children() do
@@ -144,6 +174,8 @@ function Scope:load_named_node_child(node)
         end
     end
 end
+
+-- ----------------------------------------------------------------------------
 
 ---@param node TSNode
 function Scope:add_lazy_node(node)
@@ -166,6 +198,15 @@ function Scope:finalize_lazy()
     end
 
     self.lazy_nodes = nil
+end
+
+-- ----------------------------------------------------------------------------
+
+---@param root TSNode
+function Scope:update(root)
+    if not self.root:has_changes() then
+        return
+    end
 end
 
 -- ----------------------------------------------------------------------------
@@ -286,6 +327,8 @@ function Scope:is_child_of(target)
     return target:is_ancestor_of(self)
 end
 
+-- ----------------------------------------------------------------------------
+
 ---@param child Scope
 function Scope:add_child(child)
     if (child:is_ancestor_of(self)) then
@@ -296,17 +339,33 @@ function Scope:add_child(child)
     end
 
     child.parent = self
-    child.handler = self.handler
-    child.hook_obj = self.hook_obj
-    child.hook_map = self.hook_map
     table.insert(self.children, child)
 
     local name = child.name
     if name then
-        local len = #self.children
-        self.named_children[name] = len
-        self.child_index_to_name[len] = name
+        self.child_name_map[name] = child
     end
+end
+
+---@param name string
+---@return Scope?
+function Scope:get_child(name)
+    return self.child_name_map[name]
+end
+
+---@param ident IdentInfo
+function Scope:add_ident(ident)
+    table.insert(self.identifiers, ident)
+    local name = ident.name
+    if name then
+        self.ident_name_map[name] = ident
+    end
+end
+
+---@param name string
+---@return IdentInfo?
+function Scope:get_ident(name)
+    return self.ident_name_map[name]
 end
 
 ---@param name string
@@ -332,6 +391,8 @@ function Scope:resolve_symbol(name)
 
     return result
 end
+
+-- ----------------------------------------------------------------------------
 
 ---@param outter ScopeRange
 ---@param inner ScopeRange
@@ -371,8 +432,10 @@ function Scope:find_min_wrapper(range)
     return result or self
 end
 
----@param node TSNode
+---@param node? TSNode
 function Scope:get_node_text(node)
+    if not node then return "" end
+
     return treesitter.get_node_text(node, self.bufnr)
 end
 
@@ -383,19 +446,17 @@ end
 
 -- ----------------------------------------------------------------------------
 
----@alias DispatchResult (IdentInfo | IdentInfo[] | nil)
+---@class DispatchResult
+---@field ident? IdentInfo
+---@field ident_list? IdentInfo[]
+---@field scope? Scope
+---@field scope_list? Scope[]
 
----@return IdentInfo | IdentInfo[] | nil
----@return DispatchResult
+---@param node TSNode?
+---@return DispatchResult?
 function Scope:dispatch_to_handler(node)
+    if not node then return end
     local type_name = node:type()
-
-    local extra_info
-    local hook_map = self.hook_map
-    local hook_func = hook_map and hook_map[type_name]
-    if hook_func then
-        extra_info = hook_func(self.hook_obj, self, node)
-    end
 
     local handler = self.handler[type_name]
 
@@ -406,16 +467,10 @@ function Scope:dispatch_to_handler(node)
         result = handler(self, node)
     end
 
-    if not result then
-        -- pass
-    elseif not extra_info then
-        -- pass
-    elseif getmetatable(result) == IdentInfo then
-        result.extra_info = extra_info
-    else
-        for _, info in ipairs(result) do
-            info.extra_info = extra_info
-        end
+    local hook_map = self.hook_map
+    local hook_func = hook_map and hook_map[type_name]
+    if hook_func then
+        hook_func(self.hook_obj, self, node, result)
     end
 
     return result

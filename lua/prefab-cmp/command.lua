@@ -19,6 +19,13 @@ local commands = {
         desc = "print current active prefab",
     },
     {
+        "PrefabCmpPrintScope",
+        function()
+            print(source.active_scope or "no active scope")
+        end,
+        desc = "print current active scope",
+    }, 
+    {
         "PrefabCmpStatus",
         function()
             vim.print(source)

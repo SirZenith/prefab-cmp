@@ -5,8 +5,9 @@ local M = {}
 
 ---@class NodeType
 
+---@generic T : string
 ---@param node TSNode
----@param ... NodeType
+---@param ... T
 ---@return TSNode | nil
 function M.get_child(node, ...)
     local types = { ... }
@@ -30,8 +31,9 @@ function M.get_child(node, ...)
     return walker
 end
 
+---@generic T : string
 ---@param node TSNode
----@param type NodeType
+---@param type T
 ---@return TSNode[]
 function M.filter_children(node, type)
     local result = {}

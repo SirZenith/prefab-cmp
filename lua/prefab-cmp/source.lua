@@ -53,6 +53,8 @@ function Source:load_buf(bufnr)
     end
 
     local root = tree:root()
+    if not root then return end
+
     self.active_bufnr = bufnr
     self.active_node = root
     self.active_scope = Scope:load(bufnr, root, self.handler_map, {

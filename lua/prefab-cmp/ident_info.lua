@@ -8,6 +8,7 @@ local IdentType = {
     ["function"] = "function",
     interface = "interface",
     method = "method",
+    namespace = "namespace",
     parameter = "parameter",
     ["type"] = "type",
     variable = "variable",
@@ -49,7 +50,7 @@ end
 ---@param type IdentType
 ---@param name string
 ---@param pos Position
-function IdentInfo:dummy(type, name, pos)
+function IdentInfo:new_raw(type, name, pos)
     local obj = setmetatable({}, self) ---@type IdentInfo
 
     obj.type = type
@@ -58,6 +59,22 @@ function IdentInfo:dummy(type, name, pos)
     obj.modifier = {}
 
     return obj
+end
+
+---@param key string
+---@param value any
+function IdentInfo:add_extra_info(key, value)
+    if not self.extra_info then
+        self.extra_info = {}
+    end
+    self.extra_info[key] = value
+end
+
+---@param key string
+---@return any
+function IdentInfo:get_extra_info(key)
+    if not self.extra_info then return end
+    return self.extra_info[key]
 end
 
 return {
