@@ -307,7 +307,7 @@ local handler_map = {
         local value_node = node:field("value")[1]
         local name_node = node:field("name")[1]
 
-        local value_type = value_node:type()
+        local value_type = value_node and value_node:type()
 
         local result
         if value_type == "arrow_function" or value_type == "function" then
