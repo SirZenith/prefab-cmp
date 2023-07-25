@@ -14,7 +14,35 @@ local commands = {
     {
         "PrefabCmpPrintPrefab",
         function()
-            print(source.active_prefab or "no active prefab")
+            local paths = {}
+            for k in pairs(source.prefab_map) do
+                table.insert(paths, k)
+            end
+
+            if #paths == 0 then
+                vim.notify("no prefab loaded")
+                return
+            end
+
+            local buffer = { "Loaded prefab list:" }
+            for i, path in ipairs(paths) do
+                table.insert(buffer, ("%d. %s"):format(i, path))
+            end
+            table.insert(buffer, "Choose a prefab to print: ")
+            local prompt = table.concat(buffer, "\n")
+            local index = tonumber(vim.fn.input(prompt)) or 0
+
+            local path = paths[index]
+            if not path then
+                vim.notify("invalid index")
+            end
+
+            local go = source.prefab_map[path]
+            if not go then
+                vim.notify("failed to get prefab")
+            else
+                vim.notify("\n\n" .. tostring(go))
+            end
         end,
         desc = "print current active prefab",
     },

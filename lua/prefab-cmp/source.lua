@@ -156,7 +156,6 @@ function Source:get_gameobject_path(node)
     local buffer = {}
     local ident = s:resolve_symbol(name)
     while ident do
-        vim.print("looking at: " .. ident.name)
         prefab_path = ident:get_extra_info("prefab_path")
         if prefab_path then break end
 
@@ -203,7 +202,6 @@ end
 ---@return lsp.CompletionItem[] | nil
 function Source:gen_completion(node, input_path)
     local path, prefab_path = self:get_gameobject_path(node)
-    vim.print(path, prefab_path)
     if not (path and prefab_path) then return end
 
     local go = self:get_gameobject(prefab_path)
