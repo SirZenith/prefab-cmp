@@ -12,6 +12,13 @@ local commands = {
         nargs = 1,
     },
     {
+        "PrefabCmClearPrefab",
+        function()
+            source.prefab_map = {}
+        end,
+        desc = "clear all cached prefab"
+    },
+    {
         "PrefabCmpPrintPrefab",
         function()
             local paths = {}
@@ -52,7 +59,7 @@ local commands = {
             print(source.active_scope or "no active scope")
         end,
         desc = "print current active scope",
-    }, 
+    },
     {
         "PrefabCmpStatus",
         function()
