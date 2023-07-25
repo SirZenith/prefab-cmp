@@ -7,6 +7,7 @@ local NodeType = {
     class_declaration = "class_declaration",
     comment = "comment",
     decorator = "decorator",
+    export_statement = "export_statement",
     import_clause = "import_clause",
     lexical_declaration = "lexical_declaration",
     named_imports = "named_imports",
