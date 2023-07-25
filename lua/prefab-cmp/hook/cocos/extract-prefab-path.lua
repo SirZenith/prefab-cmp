@@ -123,7 +123,12 @@ function M.from_class_comment(scope, node, result)
     local walker = name_node:prev_named_sibling()
     walk_though_comment(prefab_path_map, walker, scope)
 
-    walker = node:prev_named_sibling()
+    local parent = node:parent();
+    if parent and parent:type() == NodeType.export_statement then
+        walker = parent:prev_named_sibling();
+    else
+        walker = node:prev_named_sibling();
+    end
     walk_though_comment(prefab_path_map, walker, scope)
 
     update_scope_ident(prefab_path_map, class_scope)
