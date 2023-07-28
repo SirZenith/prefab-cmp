@@ -7,6 +7,7 @@ local NEW_LINE = "\n"
 
 ---@enum ScopeType
 local ScopeType = {
+    abstract_class = "abstract_class",
     class = "class",
     for_block = "for block",
     for_in_block = "for-in block",
@@ -444,6 +445,7 @@ end
 ---@return DispatchResult?
 function Scope:dispatch_to_handler(node)
     if not node then return end
+
     local type_name = node:type()
 
     local handler = self.handler[type_name]
@@ -457,7 +459,7 @@ function Scope:dispatch_to_handler(node)
 
     local hook_map = self.hook_map
     local hook_func = hook_map and hook_map[type_name]
-    if hook_func then
+    if result and hook_func then
         hook_func(self.hook_obj, self, node, result)
     end
 

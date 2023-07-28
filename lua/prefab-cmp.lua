@@ -8,6 +8,7 @@ cmp.register_source(source.name, source)
 
 local M = {
     name = source.name,
+    source = source,
 }
 
 function M.setup(option)
