@@ -52,8 +52,14 @@ function M.from_function_comment(scope, node, result)
         if not walker then return end
     end
 
+    local parent = walker:parent();
+    if parent and parent:type() == NodeType.export_statement then
+        walker = parent:prev_named_sibling();
+    else
+        walker = node:prev_named_sibling();
+    end
+
     local prefab_path_map = {} ---@type table<string, string>
-    walker = walker:prev_named_sibling()
     walk_though_comment(prefab_path_map, walker, scope)
 
     update_scope_ident(prefab_path_map, func_scope)
