@@ -277,7 +277,10 @@ function Source:complete(param, callback)
 
     local object_node = self:is_get_gameobject_call(node)
     if not object_node then
-        callback(nil)
+        callback({
+            items = {},
+            isIncomplete = true,
+        })
         return
     end
 
