@@ -12,6 +12,30 @@ local ScopeType = scope.ScopeType
 
 ---@type ScopeHandlerMap
 local handler_map = {
+    abstract_class_declaration = function(self, node)
+        local name_node = node:field("name")[1]
+        local name = self:get_node_text(name_node)
+
+        -- class scope
+        local body_node = node:field("body")[1]
+        local child_scope = Scope:new_lazy(self, name, ScopeType.abstract_class, body_node)
+
+        -- `this` symbol
+        local row, col, byte = node:start()
+        local this = IdentInfo:new_raw(IdentType.variable, "this", {
+            row = row, col = col, byte = byte,
+        })
+        child_scope:add_ident(this)
+
+        -- class as a symbol
+        local ident = IdentInfo:new(IdentType.class, self.bufnr, name_node)
+
+        return {
+            ident = ident,
+            scope = child_scope,
+        }
+    end,
+
     arrow_function = function(self, node)
         local name = "anonymous function"
         local parent = node:parent()
@@ -72,6 +96,10 @@ local handler_map = {
     end,
 
     comment = true,
+
+    enum_declaration = true,
+
+    ERROR = true,
 
     export_statement = function(self, node)
         local decl_node = node:field("declaration")[1]
