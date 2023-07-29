@@ -12,7 +12,7 @@ local commands = {
         nargs = 1,
     },
     {
-        "PrefabCmClearPrefab",
+        "PrefabCmpClearPrefab",
         function()
             source.prefab_map = {}
         end,
