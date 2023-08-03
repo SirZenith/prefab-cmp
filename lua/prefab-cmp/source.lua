@@ -6,6 +6,24 @@ local treesitter = vim.treesitter
 
 ---@alias PrefabLoader { load_prefab: fun(path: string): GameObject, string | nil }
 
+-- trim single & double quote from both ends of string.
+---@param str string
+---@return string
+local function trim_quote(str)
+    local fist_char = str:sub(1, 1)
+    local len = #str
+    local last_char = str:sub(len, len)
+
+    if last_char == "\"" or last_char == "'" then
+        str = str:sub(1, len - 1)
+    end
+    if fist_char == "\"" or fist_char == "'" then
+        str = str:sub(2)
+    end
+
+    return str
+end
+
 -- ----------------------------------------------------------------------------
 
 ---@class prefab-cmp.Source : cmp.Source
@@ -35,20 +53,11 @@ end
 
 ---@param bufnr number
 function Source:load_buf(bufnr)
-    if bufoption[bufnr].filetype ~= self.filetype then
-        self.active_bufnr = nil
-        self.active_node = nil
-        self.active_scope = nil
-        return
-    end
-
     if not self.handler_map then return end
 
     local parser = treesitter.get_parser(bufnr, self.filetype)
     local tree = parser:parse()[1] ---@type TSTree | nil
-    if not tree then
-        return
-    end
+    if not tree then return end
 
     local root = tree:root()
     if not root then return end
@@ -106,9 +115,10 @@ end
 
 -- Returns TSNode pointing to the object which getGameObject gets call on, returns
 -- nil if there is no call to getGameObject method wrapping the node passed in.
+---@param bufnr integer
 ---@param node TSNode
 ---@return TSNode?
-function Source:is_get_gameobject_call(node)
+function Source:is_get_gameobject_call(bufnr, node)
     local call_node = node
 
     while call_node do
@@ -120,20 +130,14 @@ function Source:is_get_gameobject_call(node)
     if not call_node then return end
 
     local function_node = call_node:field("function")[1]
-    if function_node:type() ~= "member_expression" then
-        return
-    end
+    if function_node:type() ~= "member_expression" then return end
 
     local object_node = function_node:field("object")[1]
     local property_node = function_node:field("property")[1]
-    if not (object_node and property_node) then
-        return
-    end
+    if not (object_node and property_node) then return end
 
-    local property_name = self:get_node_text(property_node)
-    if property_name ~= "getGameObject" then
-        return
-    end
+    local property_name = treesitter.get_node_text(property_node, bufnr)
+    if property_name ~= "getGameObject" then return end
 
     return object_node
 end
@@ -197,6 +201,29 @@ function Source:get_all_child_path(buffer, target, base_path)
     return buffer
 end
 
+---@param bufnr integer
+---@param pos { line: integer, character: integer }
+---@return TSNode? current_node
+---@return TSNode? object_node
+function Source:try_find_get_gameobject_call(bufnr, pos)
+    local parser = treesitter.get_parser(bufnr, self.filetype)
+    local tree = parser:parse()[1] ---@type TSTree | nil
+    if not tree then return end
+
+    local root = tree:root();
+    if not root then return end
+
+    local row = pos.line
+    local col = pos.character
+    local node = root:named_descendant_for_range(row, col, row, col + 1)
+    if not node then return end
+
+    local object_node = self:is_get_gameobject_call(bufnr, node)
+    if not object_node then return end
+
+    return node, object_node
+end
+
 ---@param node TSNode # node pointing to getGameObject gets called on
 ---@param input_path string # path string that has been inputed
 ---@return lsp.CompletionItem[] | nil
@@ -230,14 +257,6 @@ function Source:is_available()
         return false
     end
 
-    if not (
-            self.active_bufnr
-            and self.active_node
-            and self.active_scope
-        ) then
-        return false
-    end
-
     return true
 end
 
@@ -249,37 +268,22 @@ end
 ---@param param cmp.SourceCompletionApiParams
 ---@param callback fun(response: lsp.CompletionResponse | nil)
 function Source:complete(param, callback)
+    if bufoption.filetype ~= self.filetype then
+        callback(nil)
+        return
+    end
+
     local bufnr = vim.fn.bufnr()
-    if bufoption[bufnr].filetype ~= self.filetype then
+    local node, object_node = self:try_find_get_gameobject_call(bufnr, param.context.cursor)
+    if not (node and object_node) then
         callback(nil)
         return
     end
 
     self:load_buf(bufnr)
 
-    local pos = param.context.cursor
-    local node = self:get_node_for_pos(pos.line, pos.character)
-    if not node then
-        callback(nil)
-        return
-    end
-
     local input_path = self:get_node_text(node)
-    local fist_char = input_path:sub(1, 1)
-    local len = #input_path
-    local last_char = input_path:sub(len, len)
-    if last_char == "\"" or last_char == "'" then
-        input_path = input_path:sub(1, len - 1)
-    end
-    if fist_char == "\"" or fist_char == "'" then
-        input_path = input_path:sub(2)
-    end
-
-    local object_node = self:is_get_gameobject_call(node)
-    if not object_node then
-        callback(nil)
-        return
-    end
+    input_path = trim_quote(input_path)
 
     local items = self:gen_completion(object_node, input_path)
     if not items then

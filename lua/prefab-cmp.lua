@@ -32,15 +32,6 @@ function M.setup(option)
             end
         end
     end
-
-    local augroup = vim.api.nvim_create_augroup("prefab-completion", { clear = true })
-    vim.api.nvim_create_autocmd({ "BufRead", "BufEnter" }, {
-        group = augroup,
-        callback = function()
-            local bufnr = vim.fn.bufnr()
-            source:load_buf(bufnr)
-        end,
-    })
 end
 
 return M

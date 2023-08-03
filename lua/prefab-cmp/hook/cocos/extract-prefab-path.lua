@@ -79,11 +79,19 @@ function M.from_method_comment(scope, node, result)
     update_scope_ident(prefab_path_map, method_scope)
 end
 
+---@param scope Scope
+---@param node TSNode
+---@param result DispatchResult
 ---@return string? path
 function M.from_decorator(scope, node, result)
     local bufnr = scope.bufnr
     local class_scope = result.scope
     if not class_scope then return end
+
+    local parent = node:parent()
+    if parent and parent:type() == NodeType.export_statement then
+        node = parent
+    end
 
     local metainfo = util.get_child(
         node,
