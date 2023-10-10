@@ -55,6 +55,11 @@ end
 
 ---@type ScopeHookMap
 local hook_map = {
+    abstract_class_declaration = function(_, scope, node, result)
+        extract_path.from_class_comment(scope, node, result)
+        extract_path.from_decorator(scope, node, result)
+    end,
+
     arrow_function = function(_, scope, node, result)
         extract_path.from_function_comment(scope, node, result)
     end,
