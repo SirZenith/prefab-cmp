@@ -346,8 +346,14 @@ end
 
 ---@param ident prefab-cmp.IdentInfo
 function Scope:add_ident(ident)
-    table.insert(self.identifiers, ident)
-    self.ident_name_map[ident.name] = ident
+    local old_ident = self.ident_name_map[ident.name]
+
+    if old_ident then
+        vim.tbl_extend("force", old_ident, ident)
+    else
+        self.ident_name_map[ident.name] = ident
+        table.insert(self.identifiers, ident)
+    end
 end
 
 ---@param name string

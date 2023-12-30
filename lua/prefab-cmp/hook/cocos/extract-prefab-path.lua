@@ -1,5 +1,9 @@
 local util = require "prefab-cmp.util"
 local NodeType = require "prefab-cmp.node-type.typescript"
+local ident_info = require "prefab-cmp.ident_info"
+
+local IdentType = ident_info.IdentType
+local IdentInfo = ident_info.IdentInfo
 
 local treesitter = vim.treesitter
 
@@ -31,6 +35,10 @@ local function update_scope_ident(buffer, scope)
         local ident = scope:get_ident(name)
         if ident then
             ident:add_extra_info("prefab_path", path)
+        else
+            ident = IdentInfo:new_raw(IdentType.variable, name, { row = 0, col = 0, byte = 0 })
+            ident:add_extra_info("prefab_path", path)
+            scope:add_ident(ident)
         end
     end
 end
