@@ -2,7 +2,7 @@ local id_info = require "prefab-cmp.ident_info"
 local NodeType = require "prefab-cmp.node-type.typescript"
 local extract_path = require "prefab-cmp.hook.cocos.extract-prefab-path"
 
----@param scope Scope
+---@param scope prefab-cmp.Scope
 ---@param node TSNode
 ---@param result? DispatchResult
 local function get_gameobject_path(scope, node, result)
@@ -53,7 +53,7 @@ end
 
 -- ----------------------------------------------------------------------------
 
----@type ScopeHookMap
+---@type prefab-cmp.ScopeHookMap
 local hook_map = {
     abstract_class_declaration = function(_, scope, node, result)
         extract_path.from_class_comment(scope, node, result)

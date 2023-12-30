@@ -3,7 +3,7 @@ local M = {}
 ---@class TSNode
 ---@field field fun(self, name: string): TSNode[]
 
----@class NodeType
+---@class prefab-cmp.NodeType
 
 ---@generic T : string
 ---@param node TSNode

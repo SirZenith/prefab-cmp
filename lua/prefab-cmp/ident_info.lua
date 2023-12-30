@@ -1,6 +1,6 @@
 local treesitter = vim.treesitter
 
----@enum IdentType
+---@enum prefab-cmp.IdentType
 local IdentType = {
     class = "class",
     external = "external",
@@ -21,20 +21,20 @@ local Modifier = {
     let = "let",
 }
 
----@class IdentInfo
----@field type IdentType
+---@class prefab-cmp.IdentInfo
+---@field type prefab-cmp.IdentType
 ---@field name string
----@field st_pos Position
+---@field st_pos prefab-cmp.Position
 ---@field modifier table<Modifier, boolean>
 ---@field extra_info? table<string, any>
 local IdentInfo = {}
 IdentInfo.__index = IdentInfo
 
----@param type IdentType
+---@param type prefab-cmp.IdentType
 ---@param node TSNode
----@return IdentInfo
+---@return prefab-cmp.IdentInfo
 function IdentInfo:new(type, bufnr, node)
-    local obj = setmetatable({}, self) ---@type IdentInfo
+    local obj = setmetatable({}, self) ---@type prefab-cmp.IdentInfo
 
     local name = treesitter.get_node_text(node, bufnr)
     local row, col, byte = node:start()
@@ -47,11 +47,11 @@ function IdentInfo:new(type, bufnr, node)
     return obj
 end
 
----@param type IdentType
+---@param type prefab-cmp.IdentType
 ---@param name string
----@param pos Position
+---@param pos prefab-cmp.Position
 function IdentInfo:new_raw(type, name, pos)
-    local obj = setmetatable({}, self) ---@type IdentInfo
+    local obj = setmetatable({}, self) ---@type prefab-cmp.IdentInfo
 
     obj.type = type
     obj.name = name

@@ -1,4 +1,4 @@
----@class  prefab-cmp.typescript.NodeType : NodeType
+---@class  prefab-cmp.typescript.NodeType : prefab-cmp.NodeType
 local NodeType = {
     accessibility_modifier = "accessibility_modifier",
     arguments = "arguments",

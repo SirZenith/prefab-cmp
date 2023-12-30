@@ -15,7 +15,7 @@ end
 
 ---@param buffer table<string, string>
 ---@param walker TSNode
----@param scope Scope
+---@param scope prefab-cmp.Scope
 local function walk_though_comment(buffer, walker, scope)
     while walker and walker:type() == NodeType.comment do
         local comment = scope:get_node_text(walker)
@@ -25,7 +25,7 @@ local function walk_though_comment(buffer, walker, scope)
 end
 
 ---@param buffer table<string, string>
----@param scope Scope
+---@param scope prefab-cmp.Scope
 local function update_scope_ident(buffer, scope)
     for name, path in pairs(buffer) do
         local ident = scope:get_ident(name)
@@ -37,7 +37,7 @@ end
 
 -- ----------------------------------------------------------------------------
 
----@param scope Scope
+---@param scope prefab-cmp.Scope
 ---@param node TSNode
 ---@param result? DispatchResult
 function M.from_function_comment(scope, node, result)
@@ -65,7 +65,7 @@ function M.from_function_comment(scope, node, result)
     update_scope_ident(prefab_path_map, func_scope)
 end
 
----@param scope Scope
+---@param scope prefab-cmp.Scope
 ---@param node TSNode
 ---@param result? DispatchResult
 function M.from_method_comment(scope, node, result)
@@ -79,7 +79,7 @@ function M.from_method_comment(scope, node, result)
     update_scope_ident(prefab_path_map, method_scope)
 end
 
----@param scope Scope
+---@param scope prefab-cmp.Scope
 ---@param node TSNode
 ---@param result DispatchResult
 ---@return string? path
@@ -122,7 +122,7 @@ function M.from_decorator(scope, node, result)
     update_scope_ident({ this = path }, class_scope)
 end
 
----@param scope Scope
+---@param scope prefab-cmp.Scope
 ---@param node TSNode
 ---@param result DispatchResult
 function M.from_class_comment(scope, node, result)

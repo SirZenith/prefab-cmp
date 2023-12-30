@@ -10,7 +10,7 @@ local Scope = scope.Scope
 local ScopeType = scope.ScopeType
 
 
----@type ScopeHandlerMap
+---@type prefab-cmp.ScopeHandlerMap
 local handler_map = {
     abstract_class_declaration = function(self, node)
         local name_node = node:field("name")[1]

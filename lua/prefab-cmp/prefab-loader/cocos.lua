@@ -2,31 +2,10 @@ local game_object = require "prefab-cmp.game-object"
 
 local GameObject = game_object.GameObject
 
----@alias prefab-loader.cocos.IDInfo { __id__: number }
----@alias prefab-loader.cocos.AssetInfo { __uuid__: string, __expectedType__: string }
-
----@class prefab-loader.cocos.GameObjectJson
----@field __type__ string
----@field _prefab? prefab-loader.cocos.IDInfo
----@field _name? string
----@field data prefab-loader.cocos.IDInfo # only the first json object in prefab has this field
----@field _children? prefab-loader.cocos.IDInfo[]
----@field _components? prefab-loader.cocos.IDInfo[]
-
----@class prefab-loader.cocos.PrefabReferenceJson
----@field __type__ string
----@field root prefab-loader.cocos.IDInfo
----@field asset prefab-loader.cocos.AssetInfo
----@field instance prefab-loader.cocos.IDInfo
-
----@alias prefab-loader.cocos.PrefabEntry (prefab-loader.cocos.GameObjectJson | prefab-loader.cocos.PrefabReferenceJson)
-
----@alias prefab-loader.cocos.Prefab prefab-loader.cocos.PrefabEntry[]
-
 local INVALID_ID = -1
 local INVALID_TYPE = "NULL"
 
----@type table<string, fun(go: GameObject, value: any)>
+---@type table<string, fun(go: prefab-cmp.GameObject, value: any)>
 local OVERRIDE_HANDLER_MAP = {
     _name = function(go, value)
         go.name = value
@@ -73,9 +52,9 @@ local function get_obj(prefab, id)
     return prefab[id + 1]
 end
 
----@param go GameObject
+---@param go prefab-cmp.GameObject
 ---@param file_id string
----@return GameObject | nil child
+---@return prefab-cmp.GameObject | nil child
 local function get_child_by_file_id(go, file_id)
     local extra_info = go.extra_info
     if not extra_info then return end
@@ -89,14 +68,14 @@ local function get_child_by_file_id(go, file_id)
 end
 
 ---@param prefab prefab-loader.cocos.Prefab
----@param go GameObject
----@param override_info prefab-loader.cocos.IDInfo
+---@param go prefab-cmp.GameObject
+---@param override_info prefab-cmp.prefab-loader.cocos.IDInfo
 local function prefab_prop_override_single(prefab, go, override_info)
     local override_id = override_info.__id__
     local override_json = get_obj(prefab, override_id)
     if not override_json then return end
 
-    local override_target = override_json.targetInfo --[[@as prefab-loader.cocos.IDInfo]]
+    local override_target = override_json.targetInfo --[[@as prefab-cmp.prefab-loader.cocos.IDInfo]]
     if not override_target then return end
 
     local target_id = override_target.__id__
@@ -120,8 +99,8 @@ local function prefab_prop_override_single(prefab, go, override_info)
 end
 
 ---@param prefab prefab-loader.cocos.Prefab
----@param go GameObject
----@param override_list prefab-loader.cocos.IDInfo[]
+---@param go prefab-cmp.GameObject
+---@param override_list prefab-cmp.prefab-loader.cocos.IDInfo[]
 local function prefab_prop_override(prefab, go, override_list)
     for _, id_info in ipairs(override_list) do
         prefab_prop_override_single(prefab, go, id_info)
@@ -131,9 +110,9 @@ end
 -- Try to find actual file for a referenced prefab and loaded it.
 ---@param path string # prefab file path
 ---@param prefab prefab-loader.cocos.Prefab
----@param go_json prefab-loader.cocos.GameObjectJson
+---@param go_json prefab-cmp.prefab-loader.cocos.GameObjectJson
 ---@param id integer # object id in prefab
----@return GameObject
+---@return prefab-cmp.GameObject
 function M.wrap_prefab_reference(path, prefab, go_json, id)
     local ref_id_info = go_json._prefab
     local ref_id = ref_id_info and ref_id_info.__id__ or INVALID_ID
@@ -155,7 +134,7 @@ function M.wrap_prefab_reference(path, prefab, go_json, id)
     local instance_info = prefab_info.instance
     local instance_id = instance_info and instance_info.__id__
     local instance_json = get_obj(prefab, instance_id)
-    local override_info = instance_json and instance_json.propertyOverrides or {} --[[@as prefab-loader.cocos.IDInfo]]
+    local override_info = instance_json and instance_json.propertyOverrides or {} --[[@as prefab-cmp.prefab-loader.cocos.IDInfo]]
     prefab_prop_override(prefab, go, override_info)
 
     return go
@@ -163,11 +142,11 @@ end
 
 ---@param path string # prefab file path
 ---@param prefab prefab-loader.cocos.Prefab
----@param go_json prefab-loader.cocos.GameObjectJson
+---@param go_json prefab-cmp.prefab-loader.cocos.GameObjectJson
 ---@param id integer # object id in prefab
----@return GameObject
+---@return prefab-cmp.GameObject
 function M.wrap_plain_gojson(path, prefab, go_json, id)
-    local json_children = go_json._children or {} --[[@as prefab-loader.cocos.IDInfo[] ]]
+    local json_children = go_json._children or {} --[[@as prefab-cmp.prefab-loader.cocos.IDInfo[] ]]
 
     local name = go_json._name or ("unnamed-" .. tostring(id))
     local go = GameObject:new(name)
@@ -203,7 +182,7 @@ end
 ---@param path string # prefab file path
 ---@param prefab prefab-loader.cocos.Prefab
 ---@param id integer # object id in prefab
----@return GameObject
+---@return prefab-cmp.GameObject
 function M.wrap(path, prefab, id)
     local go_json = get_obj(prefab, id)
     local node_type = go_json and go_json.__type__ or INVALID_ID
@@ -219,7 +198,7 @@ function M.wrap(path, prefab, id)
         return GameObject:new("")
     end
 
-    go_json = go_json --[[@as prefab-loader.cocos.GameObjectJson]]
+    go_json = go_json --[[@as prefab-cmp.prefab-loader.cocos.GameObjectJson]]
     local go
     if go_json._children then
         go = M.wrap_plain_gojson(path, prefab, go_json, id)
@@ -245,7 +224,7 @@ end
 -- ----------------------------------------------------------------------------
 
 ---@param path string
----@return GameObject
+---@return prefab-cmp.GameObject
 ---@return string | nil err
 function M.load_prefab(path)
     local prefab, err = M.load_raw_prefab_with_path(path)
@@ -265,7 +244,7 @@ end
 
 ---@param path string # path of prefab which depends on the prefab to be load
 ---@param uuid string
----@return GameObject
+---@return prefab-cmp.GameObject
 ---@return string | nil err
 function M.load_prefab_with_uuid(path, uuid)
     local to_path = M._uuid_to_path_func

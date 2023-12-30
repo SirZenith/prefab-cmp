@@ -1,14 +1,14 @@
 
----@class GameObject
+---@class prefab-cmp.GameObject
 ---@field name string
----@field children GameObject[]
----@field child_map table<string, GameObject>
+---@field children prefab-cmp.GameObject[]
+---@field child_map table<string, prefab-cmp.GameObject>
 ---@field extra_info? table<string, any>
 local GameObject = {}
 GameObject.__index = GameObject
 
 ---@param name string
----@return GameObject
+---@return prefab-cmp.GameObject
 function GameObject:new(name)
     local obj = setmetatable({}, self)
 
@@ -58,7 +58,7 @@ end
 -- ----------------------------------------------------------------------------
 
 ---@param path string
----@return GameObject | nil
+---@return prefab-cmp.GameObject | nil
 function GameObject:get_child(path)
     local walker = self
     local st, len = 1, #path

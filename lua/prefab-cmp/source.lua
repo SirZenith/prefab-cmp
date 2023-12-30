@@ -4,40 +4,23 @@ local Scope = scope.Scope
 local bufoption = vim.bo
 local treesitter = vim.treesitter
 
----@alias PrefabLoader { load_prefab: fun(path: string): GameObject, string | nil }
-
--- trim single & double quote from both ends of string.
----@param str string
----@return string
-local function trim_quote(str)
-    local fist_char = str:sub(1, 1)
-    local len = #str
-    local last_char = str:sub(len, len)
-
-    if last_char == "\"" or last_char == "'" then
-        str = str:sub(1, len - 1)
-    end
-    if fist_char == "\"" or fist_char == "'" then
-        str = str:sub(2)
-    end
-
-    return str
-end
+---@alias PrefabLoader { load_prefab: fun(path: string): prefab-cmp.GameObject, string | nil }
 
 -- ----------------------------------------------------------------------------
 
 ---@class prefab-cmp.Source : cmp.Source
 ---@field filetype? string
----@field handler_map? ScopeHandlerMap
----@field hook_map? ScopeHookMap
+---@field handler_map? prefab-cmp.ScopeHandlerMap
+---@field hook_map? prefab-cmp.ScopeHookMap
+---@field completor? prefab-cmp.Completor
 --
 ---@field prefab_path_map_func? fun(path: string): string
 ---@field prefab_loader? PrefabLoader
----@field prefab_map table<string, GameObject>
+---@field prefab_map table<string, prefab-cmp.GameObject>
 --
 ---@field active_bufnr? number
 ---@field active_node? TSNode
----@field active_scope? Scope
+---@field active_scope? prefab-cmp.Scope
 local Source = {}
 Source.name = "prefab-completion"
 Source.__index = Source
@@ -88,7 +71,7 @@ function Source:_load_prefab(path)
 end
 
 ---@param prefab_path string
----@return GameObject?
+---@return prefab-cmp.GameObject?
 function Source:get_gameobject(prefab_path)
     local map = self.prefab_path_map_func
     prefab_path = map and map(prefab_path) or prefab_path
@@ -113,140 +96,80 @@ function Source:get_node_for_pos(row, col)
     return self.active_node:named_descendant_for_range(row, col, row, col + 1)
 end
 
--- Returns TSNode pointing to the object which getGameObject gets call on, returns
--- nil if there is no call to getGameObject method wrapping the node passed in.
----@param bufnr integer
----@param node TSNode
----@return TSNode?
-function Source:is_get_gameobject_call(bufnr, node)
-    local call_node = node
+---@param object_node TSNode
+---@return prefab-cmp.GameObject?
+function Source:get_parent_object(object_node)
+    local completor = self.completor
+    if not completor then return end
 
-    while call_node do
-        if call_node:type() == "call_expression" then
-            break
-        end
-        call_node = call_node:parent()
-    end
-    if not call_node then return end
-
-    local function_node = call_node:field("function")[1]
-    if function_node:type() ~= "member_expression" then return end
-
-    local object_node = function_node:field("object")[1]
-    local property_node = function_node:field("property")[1]
-    if not (object_node and property_node) then return end
-
-    local property_name = treesitter.get_node_text(property_node, bufnr)
-    if property_name ~= "getGameObject" then return end
-
-    return object_node
-end
-
----@param node TSNode # node pointing to getGameObject gets called on
----@return string? game_object_path
----@return string? prefab_path
-function Source:get_gameobject_path(node)
-    local name = self:get_node_text(node)
-    local st_row, st_col, ed_row, ed_col = node:range()
+    local st_row, st_col, ed_row, ed_col = object_node:range()
     local range = {
         st = { row = st_row, col = st_col },
         ed = { row = ed_row, col = ed_col },
     }
+    local wrapper_scope = self.active_scope:find_min_wrapper(range)
+    if not wrapper_scope then return end
 
-    local s = self.active_scope:find_min_wrapper(range)
-    if not s then return end
-
-    local prefab_path
-    local buffer = {}
-    local ident = s:resolve_symbol(name)
-    while ident do
-        prefab_path = ident:get_extra_info("prefab_path")
-        if prefab_path then break end
-
-        local path = ident:get_extra_info("game_object_path")
-        if not path then break end
-
-        table.insert(buffer, path)
-
-        local parent = ident:get_extra_info("parent_object")
-        if not parent then break end
-
-        ident = s:resolve_symbol(parent)
-    end
-
-    local len = #buffer
-    for i = 1, math.floor(len / 2) do
-        local j = len - i + 1
-        local temp = buffer[i]
-        buffer[i] = buffer[j]
-        buffer[j] = temp
-    end
-
-    return table.concat(buffer, '/'), prefab_path
-end
-
----@param buffer string[]
----@param target GameObject
----@param base_path string
----@return string[] buffer
-function Source:get_all_child_path(buffer, target, base_path)
-    for _, child in ipairs(target.children) do
-        local name = child.name
-        local path = base_path == "" and name or (base_path .. "/" .. name)
-        table.insert(buffer, path)
-
-        self:get_all_child_path(buffer, child, path)
-    end
-
-    return buffer
-end
-
----@param bufnr integer
----@param pos { line: integer, character: integer }
----@return TSNode? current_node
----@return TSNode? object_node
-function Source:try_find_get_gameobject_call(bufnr, pos)
-    local parser = treesitter.get_parser(bufnr, self.filetype)
-    local tree = parser:parse()[1] ---@type TSTree | nil
-    if not tree then return end
-
-    local root = tree:root();
-    if not root then return end
-
-    local row = pos.line
-    local col = pos.character
-    local node = root:named_descendant_for_range(row, col, row, col + 1)
-    if not node then return end
-
-    local object_node = self:is_get_gameobject_call(bufnr, node)
-    if not object_node then return end
-
-    return node, object_node
-end
-
----@param node TSNode # node pointing to getGameObject gets called on
----@param input_path string # path string that has been inputed
----@return lsp.CompletionItem[] | nil
-function Source:gen_completion(node, input_path)
-    local path, prefab_path = self:get_gameobject_path(node)
-    if not (path and prefab_path) then return end
+    local object_name = self:get_node_text(object_node)
+    local parent_path, prefab_path = completor.get_parent_path(wrapper_scope, object_name)
+    if not (parent_path and prefab_path) then return end
 
     local go = self:get_gameobject(prefab_path)
     if not go then return end
 
-    local target = go:get_child(path)
-    target = target and target:get_child(input_path)
-    if not target then return end
+    local parent_go = go:get_child(parent_path)
 
-    local result = {}
-    for _, child_path in ipairs(self:get_all_child_path({}, target, "")) do
-        table.insert(result, {
+    return parent_go
+end
+
+---@param parent_go prefab-cmp.GameObject
+---@param path_node TSNode
+---@return lsp.CompletionItem[]?
+function Source:get_all_child_path(parent_go, path_node)
+    local completor = self.completor
+    if not completor then return end
+
+    local input_path = self:get_node_text(path_node)
+    input_path = self.completor.trim_quote(input_path)
+
+    local children_paths = completor.get_all_child_path(parent_go, input_path)
+    if not children_paths then return end
+
+    local items = {}
+    for _, child_path in ipairs(children_paths) do
+        table.insert(items, {
             label = child_path,
             kind = vim.lsp.protocol.CompletionItemKind.Value,
         })
     end
 
-    return result
+    return items
+end
+
+---@param cursor_pos { line: integer, character: integer }
+---@return lsp.CompletionResponse | nil
+function Source:gen_completion(cursor_pos)
+    if bufoption.filetype ~= self.filetype then return end
+
+    local completor = self.completor
+    if not completor then return end
+
+    local bufnr = vim.fn.bufnr()
+    local path_node, object_node = completor.get_gameobject_call_at(bufnr, cursor_pos)
+    if not (path_node and object_node) then return end
+
+    self:load_buf(bufnr)
+
+    local parent_go = self:get_parent_object(object_node)
+    if not parent_go then return end
+
+    local items = self:get_all_child_path(parent_go, path_node)
+    if not items then return end
+
+    return {
+        items = items,
+        isIncomplete = false,
+    }
 end
 
 -- ----------------------------------------------------------------------------
@@ -268,33 +191,8 @@ end
 ---@param param cmp.SourceCompletionApiParams
 ---@param callback fun(response: lsp.CompletionResponse | nil)
 function Source:complete(param, callback)
-    if bufoption.filetype ~= self.filetype then
-        callback(nil)
-        return
-    end
-
-    local bufnr = vim.fn.bufnr()
-    local node, object_node = self:try_find_get_gameobject_call(bufnr, param.context.cursor)
-    if not (node and object_node) then
-        callback(nil)
-        return
-    end
-
-    self:load_buf(bufnr)
-
-    local input_path = self:get_node_text(node)
-    input_path = trim_quote(input_path)
-
-    local items = self:gen_completion(object_node, input_path)
-    if not items then
-        callback(nil)
-        return
-    end
-
-    callback {
-        items = items,
-        isIncomplete = false,
-    }
+    local result = self:gen_completion(param.context.cursor)
+    callback(result)
 end
 
 -- ----------------------------------------------------------------------------

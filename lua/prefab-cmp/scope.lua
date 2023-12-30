@@ -5,7 +5,7 @@ local NEW_LINE = "\n"
 
 -- ----------------------------------------------------------------------------
 
----@enum ScopeType
+---@enum prefab-cmp.ScopeType
 local ScopeType = {
     abstract_class = "abstract_class",
     class = "class",
@@ -17,37 +17,27 @@ local ScopeType = {
     namespace = "namespace",
 }
 
----@alias Position { row: integer, col: integer, byte: integer }
----@alias ScopeRange { st: Position, ed: Position }
-
----@alias ScopeHookFunc fun(self: any, scope: Scope, node: TSNode, result: DispatchResult) | nil
-
----@alias ScopeHookMap table<string, ScopeHookFunc>
-
----@alias ScopeHandlerFunc fun(self: Scope, node: TSNode): DispatchResult?
----@alias ScopeHandlerMap table<string, boolean | ScopeHandlerFunc>
-
 -- ----------------------------------------------------------------------------
 
----@class Scope
+---@class prefab-cmp.Scope
 --
 ---@field bufnr number
 ---@field root TSNode
 ---@field id number
----@field type ScopeType
+---@field type prefab-cmp.ScopeType
 ---@field name? string
----@field range ScopeRange
+---@field range prefab-cmp.ScopeRange
 --
----@field parent? Scope
----@field children Scope[]
----@field child_name_map table<string, Scope>
----@field identifiers IdentInfo[]
----@field ident_name_map table<string, IdentInfo>
+---@field parent? prefab-cmp.Scope
+---@field children prefab-cmp.Scope[]
+---@field child_name_map table<string, prefab-cmp.Scope>
+---@field identifiers prefab-cmp.IdentInfo[]
+---@field ident_name_map table<string, prefab-cmp.IdentInfo>
 --
 ---@field lazy_nodes? TSNode[]
----@field handler ScopeHandlerMap
+---@field handler prefab-cmp.ScopeHandlerMap
 ---@field hook_obj? any
----@field hook_map? ScopeHookMap
+---@field hook_map? prefab-cmp.ScopeHookMap
 local Scope = {}
 Scope.__index = Scope
 Scope._id = 0
@@ -55,9 +45,9 @@ Scope._id = 0
 -- Creates a scope directly from given buffer.
 ---@param bufnr number
 ---@param root TSNode
----@param handler_map ScopeHandlerMap
----@param hook? { obj: any, map: ScopeHookMap }
----@return Scope
+---@param handler_map prefab-cmp.ScopeHandlerMap
+---@param hook? { obj: any, map: prefab-cmp.ScopeHookMap }
+---@return prefab-cmp.Scope
 function Scope:load(bufnr, root, handler_map, hook)
     local scope = self:new(nil, "root", root:type(), root)
 
@@ -76,11 +66,11 @@ end
 
 -- Creates a new scope with the same buffer number, handler map, hook object,
 -- hook map as source passed in.
----@param source? Scope
+---@param source? prefab-cmp.Scope
 ---@param name string
----@param type ScopeType
+---@param type prefab-cmp.ScopeType
 ---@param root TSNode
----@return Scope
+---@return prefab-cmp.Scope
 function Scope:new(source, name, type, root)
     local obj = setmetatable({}, self)
 
@@ -112,12 +102,12 @@ end
 
 -- Like Scope:new(), but new scope object can remember TSNode it contains. This
 -- allow unnecessary traverse postpon until `self:finalize_lazy()` is called.
----@param source Scope
+---@param source prefab-cmp.Scope
 ---@param name string
----@param type ScopeType
+---@param type prefab-cmp.ScopeType
 ---@param root TSNode
 ---@param ... TSNode
----@return Scope
+---@return prefab-cmp.Scope
 function Scope:new_lazy(source, name, type, root, ...)
     local scope = Scope:new(source, name, type, root)
     scope:add_lazy_node(root)
@@ -128,7 +118,7 @@ function Scope:new_lazy(source, name, type, root, ...)
 end
 
 -- Copy handler, hook object, hook map from another scope.
----@param other Scope
+---@param other prefab-cmp.Scope
 function Scope:mimic(other)
     self.bufnr = other.bufnr
     self.handler = other.handler
@@ -306,7 +296,7 @@ end
 -- ----------------------------------------------------------------------------
 
 -- Checks if current scope is an ancestor of scope passed in.
----@param target Scope
+---@param target prefab-cmp.Scope
 ---@return boolean
 function Scope:is_ancestor_of(target)
     local walker = target
@@ -322,7 +312,7 @@ function Scope:is_ancestor_of(target)
 end
 
 -- Checks if current scope is a child of scope passed in.
----@param target Scope
+---@param target prefab-cmp.Scope
 ---@return boolean
 function Scope:is_child_of(target)
     return target:is_ancestor_of(self)
@@ -330,7 +320,7 @@ end
 
 -- ----------------------------------------------------------------------------
 
----@param child Scope
+---@param child prefab-cmp.Scope
 function Scope:add_child(child)
     if (child:is_ancestor_of(self)) then
         local msg = (
@@ -349,29 +339,29 @@ function Scope:add_child(child)
 end
 
 ---@param name string
----@return Scope?
+---@return prefab-cmp.Scope?
 function Scope:get_child(name)
     return self.child_name_map[name]
 end
 
----@param ident IdentInfo
+---@param ident prefab-cmp.IdentInfo
 function Scope:add_ident(ident)
     table.insert(self.identifiers, ident)
     self.ident_name_map[ident.name] = ident
 end
 
 ---@param name string
----@return IdentInfo?
+---@return prefab-cmp.IdentInfo?
 function Scope:get_ident(name)
     return self.ident_name_map[name]
 end
 
 ---@param name string
----@return IdentInfo | nil
+---@return prefab-cmp.IdentInfo | nil
 function Scope:resolve_symbol(name)
     self:finalize_lazy()
 
-    local result = self.ident_name_map[name] ---@type IdentInfo?
+    local result = self.ident_name_map[name] ---@type prefab-cmp.IdentInfo?
 
     local parent = self.parent
     if not result and parent then
@@ -383,8 +373,8 @@ end
 
 -- ----------------------------------------------------------------------------
 
----@param outter ScopeRange
----@param inner ScopeRange
+---@param outter prefab-cmp.ScopeRange
+---@param inner prefab-cmp.ScopeRange
 ---@return boolean
 local function contains_range(outter, inner)
     if outter.st.row > inner.st.row or outter.ed.row < inner.ed.row then
@@ -402,7 +392,7 @@ local function contains_range(outter, inner)
     return true
 end
 
----@param range { st: Position, ed: Position }
+---@param range { st: prefab-cmp.Position, ed: prefab-cmp.Position }
 function Scope:find_min_wrapper(range)
     if not contains_range(self.range, range) then
         return nil
@@ -436,10 +426,10 @@ end
 -- ----------------------------------------------------------------------------
 
 ---@class DispatchResult
----@field ident? IdentInfo
----@field ident_list? IdentInfo[]
----@field scope? Scope
----@field scope_list? Scope[]
+---@field ident? prefab-cmp.IdentInfo
+---@field ident_list? prefab-cmp.IdentInfo[]
+---@field scope? prefab-cmp.Scope
+---@field scope_list? prefab-cmp.Scope[]
 
 ---@param node TSNode?
 ---@return DispatchResult?

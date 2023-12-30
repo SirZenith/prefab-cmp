@@ -6,6 +6,7 @@ M.flavor_dict = {
         handler_map = require "prefab-cmp.handler.typescript",
         prefab_loader = require "prefab-cmp.prefab-loader.cocos",
         hook_map = require "prefab-cmp.hook.cocos",
+        completor = require "prefab-cmp.completor.cocos",
     },
 }
 
@@ -22,6 +23,7 @@ function M.set_flavor(source, name)
     source.handler_map = flavor.handler_map
     source.prefab_loader = flavor.prefab_loader
     source.hook_map = flavor.hook_map
+    source.completor = flavor.completor
 end
 
 return M
