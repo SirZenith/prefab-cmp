@@ -1,3 +1,4 @@
+local config = require "prefab-cmp.config"
 local scope = require "prefab-cmp.scope"
 
 local Scope = scope.Scope
@@ -14,7 +15,7 @@ local treesitter = vim.treesitter
 ---@field hook_map? prefab-cmp.ScopeHookMap
 ---@field completor? prefab-cmp.Completor
 --
----@field prefab_path_map_func? fun(path: string): string
+---@field _prefab_path_map_func? fun(path: string): string
 ---@field prefab_loader? PrefabLoader
 ---@field prefab_map table<string, prefab-cmp.GameObject>
 --
@@ -70,10 +71,26 @@ function Source:_load_prefab(path)
     self.prefab_map[path] = gameobject
 end
 
+function Source:setup_prefab_path_map_func()
+    local func = config.path_map_func
+
+    if func == nil then
+        self._prefab_path_map_func = nil
+        return
+    end
+
+    if type(func) == "function" then
+        vim.notify("path map function should be a function value", vim.log.levels.WARN)
+        return
+    end
+
+    self._prefab_path_map_func = func
+end
+
 ---@param prefab_path string
 ---@return prefab-cmp.GameObject?
 function Source:get_gameobject(prefab_path)
-    local map = self.prefab_path_map_func
+    local map = self._prefab_path_map_func
     prefab_path = map and map(prefab_path) or prefab_path
 
     if not self.prefab_map[prefab_path] then

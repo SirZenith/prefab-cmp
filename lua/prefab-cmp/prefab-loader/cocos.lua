@@ -1,3 +1,4 @@
+local config = require "prefab-cmp.config"
 local game_object = require "prefab-cmp.game-object"
 
 local GameObject = game_object.GameObject
@@ -134,7 +135,8 @@ function M.wrap_prefab_reference(path, prefab, go_json, id)
     local instance_info = prefab_info.instance
     local instance_id = instance_info and instance_info.__id__
     local instance_json = get_obj(prefab, instance_id)
-    local override_info = instance_json and instance_json.propertyOverrides or {} --[[@as prefab-cmp.prefab-loader.cocos.IDInfo]]
+    local override_info = instance_json and instance_json.propertyOverrides or
+    {} --[[@as prefab-cmp.prefab-loader.cocos.IDInfo]]
     prefab_prop_override(prefab, go, override_info)
 
     return go
@@ -262,10 +264,8 @@ end
 
 -- ----------------------------------------------------------------------------
 
-function M.setup(option)
-    if option.uuid_convertor then
-        M.set_uuid_convertor(option.uuid_convertor)
-    end
+function M.setup()
+    M.set_uuid_convertor(config.prefab_loader.cocos.uuid_convertor)
 end
 
 return M
