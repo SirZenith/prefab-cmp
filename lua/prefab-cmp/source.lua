@@ -79,7 +79,7 @@ function Source:setup_prefab_path_map_func()
         return
     end
 
-    if type(func) == "function" then
+    if type(func) ~= "function" then
         vim.notify("path map function should be a function value", vim.log.levels.WARN)
         return
     end
