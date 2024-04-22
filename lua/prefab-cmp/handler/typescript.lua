@@ -36,6 +36,8 @@ local handler_map = {
         }
     end,
 
+    abstract_method_signature = true,
+
     arrow_function = function(self, node)
         local name = "anonymous function"
         local parent = node:parent()
